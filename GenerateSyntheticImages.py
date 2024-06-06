@@ -6,8 +6,8 @@ import os, sys
 import random 
 
 # Load the reference images
-viable_image_path = 'viable.png'  # Update with correct path if necessary ##### List of image names
-non_viable_image_path = 'non-viable.png'  # Update with correct path if necessary #### list of images
+viable_image_path = 'ExampleData/viable.png'  # Update with correct path if necessary ##### List of image names
+non_viable_image_path = 'ExampleData/non-viable1.png'  # Update with correct path if necessary #### list of images
 #random.sample(viable_image_path)
 
 

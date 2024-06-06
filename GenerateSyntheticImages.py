@@ -21,7 +21,7 @@ def is_within_circle(x, y, center, radius):
 
 # Function to create synthetic frog egg images
 def create_synthetic_frog_egg_image(viable_img, non_viable_img, num_viable=50, num_non_viable=50, image_size=(1000, 1000)):
-    synthetic_image = Image.new('RGBA', image_size, (211, 211, 211, 255))  # light grey
+    synthetic_image = Image.new('RGBA', image_size, (160, 172, 185, 255))  # light grey.     (119, 117, 104, 255).  (90, 80, 68, 255)
     egg_radius = 20  # radius for synthetic eggs
     viable_img_resized = viable_img.resize((egg_radius * 2, egg_radius * 2))
     non_viable_img_resized = non_viable_img.resize((egg_radius * 2, egg_radius * 2))

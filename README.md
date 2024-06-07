@@ -15,7 +15,9 @@ In general a petridish with ~60% fertilized eggs and egg count ~300 is considere
 To generate synthetic images please use following code
 ```
 # To genrate the synthetic dataset, please run RunScript.sh
-# Generating ~300 eggs takes 3 seconds. User can adjust the number of eggs based on their computational power and radius of image
+# Generating ~300 eggs takes 3 seconds.
+User can adjust the number of eggs based on their computational power and radius of image
 sh RunScript.sh
-# The run script uses GenerateSyntheticImages_MultipleTypes.py script to generate images and saves them into a folder synthetic_frog_eggs/mixture
+# The run script uses GenerateSyntheticImages_MultipleTypes.py script to generate images
+  and saves them into a folder synthetic_frog_eggs/mixture
 ```

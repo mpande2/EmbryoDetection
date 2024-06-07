@@ -109,6 +109,6 @@ num_images = 2
 for i in range(num_images):
     # Create image with both viable and non-viable eggs
     synthetic_image = create_synthetic_frog_egg_image(viable_images, non_viable_images, num_viable=int(sys.argv[1]), num_non_viable=int(sys.argv[2]))
-    synthetic_image.save(f'synthetic_frog_eggs/mixture/synthetic_frog_egg_{i}.png')
+    synthetic_image.save(f'synthetic_frog_eggs/mixture/synthetic_frog_egg_{sys.argv[1]}_{sys.argv[2]}_{i}.png')
 
 print('Synthetic frog egg images generated successfully.')

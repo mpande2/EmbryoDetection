@@ -71,7 +71,7 @@ def create_synthetic_frog_egg_image(viable_imgs, non_viable_imgs, num_viable=50,
                 synthetic_image.paste(viable_img_resized, (x - egg_radius, y - egg_radius), viable_img_resized)
                 """
 
-                viable_img = random.choice(viable_imgs).resize((egg_radius * 2, egg_radius * 2))
+                viable_img = random.choice(viable_imgs).resize((egg_radius * 2, egg_radius * 2)).convert("RGBA")
                 synthetic_image.paste(viable_img, (x - egg_radius, y - egg_radius), viable_img)
                 break
                 
@@ -82,7 +82,7 @@ def create_synthetic_frog_egg_image(viable_imgs, non_viable_imgs, num_viable=50,
             y = np.random.randint(margin, image_size[1] - margin)
             if not is_overlapping(x, y, positions, egg_radius) and is_within_circle(x, y, center, circle_radius - margin):
                 positions.append((x, y))
-                non_viable_img = random.choice(non_viable_imgs).resize((egg_radius * 2, egg_radius * 2))
+                non_viable_img = random.choice(non_viable_imgs).resize((egg_radius * 2, egg_radius * 2)).convert("RGBA")
                 synthetic_image.paste(non_viable_img, (x - egg_radius, y - egg_radius), non_viable_img)
                 break
 

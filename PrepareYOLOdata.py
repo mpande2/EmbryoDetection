@@ -60,17 +60,17 @@ val_samples = random.sample(images, int(len(images)*0.5))
 test_samples = [image for image in images if image not in val_samples]
 
 for image in train_samples:
-  name = image.split(".")
+  name = image.split(".")[0]
   os.system(f"mv {image} train/images")
   os.system(f"mv {name}.txt train/labels")
 
 for image in val_samples:
-  name = image.split(".")
+  name = image.split(".")[0]
   os.system(f"mv {image} val/images")
   os.system(f"mv {name}.txt val/labels")
 
 for image in test_samples:
-  name = image.split(".")
+  name = image.split(".")[0]
   os.system(f"mv {image} test/images")
   os.system(f"mv {name}.txt test/labels")
   

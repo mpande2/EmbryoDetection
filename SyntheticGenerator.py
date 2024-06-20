@@ -22,7 +22,7 @@ class SyntheticGenerator:
         self.image_width = 1000
         self.separation_chance = 0.05
         self.egg_fill = 0.6
-        self.padding = 1
+        self.padding = 7
 
     def _findNextEmptySlot(self,grid):
         if len(grid) == 0 or len(grid[0]) == 0: return SyntheticGenerator.INVALID_LOCATION
@@ -128,5 +128,5 @@ non_viable_images = [Image.open(os.path.join(non_viable_image_dir,img)) for img 
 
 frog_generator = SyntheticGenerator(viable_images,non_viable_images,viable_percent=0.6)
 
-im = frog_generator.generateGrid(10,10,show_grid=True,generate_animation=False)
+im = frog_generator.generateGrid(40,40,show_grid=False,generate_animation=False)
 im.show()

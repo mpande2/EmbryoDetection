@@ -144,7 +144,7 @@ class SyntheticGenerator:
     def generateEggImages(self,number_images=10,min_eggs=50,max_eggs=100,viable_percent=0.5):
         for i in range(number_images):
             im = Image.new('RGBA',(self.image_width,self.image_height))
-            backgroundIm = random.choice(self.backgrounds)
+            backgroundIm = random.choice(self.backgrounds).copy()
             next_spawn_location = SyntheticGenerator.INVALID_LOCATION
             egg_count = 0
             viable_count = 0
@@ -179,7 +179,7 @@ backgrounds = [Image.open(os.path.join(backgrounds_dir,img)) for img in os.listd
 frog_generator = SyntheticGenerator(viable_images,non_viable_images,backgrounds)
 
 image_num = 0
-for viable_percent in range(40,100,100):
-    for result in frog_generator.generateEggImages(number_images=25,min_eggs=10,max_eggs=20,viable_percent=viable_percent/100):
+for viable_percent in range(20,100,20):
+    for result in frog_generator.generateEggImages(number_images=2,min_eggs=100,max_eggs=150,viable_percent=viable_percent/100):
         result.image.save(f'{image_num}-synthetic-eggs-{result.viable_count}-{result.total_count-result.viable_count}.png')
         image_num+=1

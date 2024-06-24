@@ -1,132 +1,371 @@
 from PIL import Image, ImageDraw, ImageOps
 import random
-from math import floor
+import math
 import os
+from enum import Enum
+import threading
+import sys
+from datetime import datetime
+
 
 def log(*args):
+    # return
     print(*args)
+
 
 class Utility:
     @staticmethod
-    def randomizeWithinVariance(val,maxVariance=0.2):
-        new_val = round(val * (1 + random.uniform(-maxVariance,0)))
-        return (new_val)
+    def randomizeWithinVariance(val: int | float, maxVariance=0.2) -> int | float:
+        new_val = round(val * (1 + random.uniform(-maxVariance, 0)))
+        return new_val
+
+    @staticmethod
+    def centerToBoundingBox(
+        center_coords: tuple[int, int], size: tuple[int, int]
+    ) -> tuple[int, int, int, int]:
+        center_x, center_y = center_coords
+        width, height = size
+        top_left_x = round(center_x - width / 2)
+        top_left_y = round(center_y - height / 2)
+        bot_right_x = round(center_x + width / 2)
+        bot_right_y = round(center_y + height / 2)
+        return (top_left_x, top_left_y, bot_right_x, bot_right_y)
+
+    @staticmethod
+    def boundingBoxToCenter(
+        box_coords: tuple[int, int, int, int], box_size: tuple[int, int]
+    ) -> tuple[int, int]:
+        top_left_x, top_left_y, *_ = box_coords
+        center_x = round(top_left_x + box_size[0] / 2)
+        center_y = round(top_left_y + box_size[1] / 2)
+        return (center_x, center_y)
+
+    @staticmethod
+    def getRandomCoordinate(
+        center: tuple[int, int], max_radius: int
+    ) -> tuple[int, int]:
+        random_radius = random.randrange(0, max_radius)
+        random_angle = random.random() * math.pi * 2
+        center_x, center_y = center
+        random_coord = (
+            round(center_x + random_radius * math.sin(random_angle)),
+            round(center_y + random_radius * math.cos(random_angle)),
+        )
+        return random_coord
+
+    @staticmethod
+    def translateBoxInPolarCoords(
+        curr_bounds: tuple[int, int, int, int], deltaR: float | int, dir: float
+    ):
+        top_left_x, top_left_y, bot_right_x, bot_right_y = curr_bounds
+        next_top_left_x = deltaR * math.sin(dir) + top_left_x
+        next_top_left_y = deltaR * math.cos(dir) + top_left_y
+        next_bot_right_x = deltaR * math.sin(dir) + bot_right_x
+        next_bot_right_y = deltaR * math.cos(dir) + bot_right_y
+        next_bounds = tuple(
+            map(
+                lambda x: round(x),
+                (next_top_left_x, next_top_left_y, next_bot_right_x, next_bot_right_y),
+            )
+        )
+        return next_bounds
+
+
+class EggType(Enum):
+    VIABLE = "viable"
+    NON_VIABLE = "non_viable"
+
+
+class SyntheticEgg:
+    def __init__(self, image: Image.Image, type: EggType):
+        self.image = image
+        self.type = type
+
+
+class SyntheticGeneratorResult:
+    def __init__(self, image: Image.Image, total_count: int, viable_count: int):
+        self.image = image
+        self.total_count = total_count
+        self.viable_count = viable_count
+
 
 class SyntheticGenerator:
-    INVALID_LOCATION = (-1,-1)
-    def __init__(self,viable_images,non_viable_images,viable_percent=0.5):
-        self.viables = viable_images
-        self.non_viables = non_viable_images
-        self.viablePercent = viable_percent
-        self.image_height = 1000
-        self.image_width = 1000
-        self.separation_chance = 0.05
-        self.egg_fill = 0.6
-        self.padding = 7
+    INVALID_LOCATION = (-1, -1, -1, -1)
+    EGG_RADIUS = 9
+    EGG_SPACING = 3
+    OVERLAP_PIXEL_THRESHOLD = 50000
+    RANDOM_LOCATION_RETRIES_LIMIT = 300
 
-    def _findNextEmptySlot(self,grid):
-        if len(grid) == 0 or len(grid[0]) == 0: return SyntheticGenerator.INVALID_LOCATION
+    def __init__(
+        self,
+        viable_images_dir: str,
+        non_viable_images_dir: str,
+        backgrounds_dir: str,
+        separation_chance: float = 0,
+    ):
+        self.image_height = 600
+        self.image_width = 600
+        self.boundary_radius = 250
+        self.separation_chance = separation_chance
+        self.viables = [
+            Image.open(os.path.join(viable_images_dir, img))
+            .resize(
+                (SyntheticGenerator.EGG_RADIUS * 2, SyntheticGenerator.EGG_RADIUS * 2)
+            )
+            .convert("RGBA")
+            for img in os.listdir(viable_images_dir)
+            if img.endswith("png")
+        ]
+        self.non_viables = [
+            Image.open(os.path.join(non_viable_images_dir, img))
+            .resize(
+                (SyntheticGenerator.EGG_RADIUS * 2, SyntheticGenerator.EGG_RADIUS * 2)
+            )
+            .convert("RGBA")
+            for img in os.listdir(non_viable_images_dir)
+            if img.endswith("png")
+        ]
+        self.backgrounds = [
+            Image.open(os.path.join(backgrounds_dir, img))
+            .resize((self.image_width, self.image_height))
+            .convert("RGBA")
+            for img in os.listdir(backgrounds_dir)
+            if img.endswith("png")
+        ]
 
-        rows = len(grid)
-        cols = len(grid[0])
-
-        for i in range(self.padding,rows-self.padding):
-            for j in range(self.padding,cols-self.padding):
-                if grid[i][j] == 0: return (i,j)
-        return SyntheticGenerator.INVALID_LOCATION
-
-    def _getNextEgg(self):
+    def _getNextEgg(self, viable_percent: float) -> SyntheticEgg:
         r = random.random()
-        if r < self.viablePercent:
-            return random.choice(self.non_viables)
+        if r < viable_percent:
+            return SyntheticEgg(random.choice(self.viables), EggType.VIABLE)
         else:
-            return random.choice(self.viables)
+            return SyntheticEgg(random.choice(self.non_viables), EggType.NON_VIABLE)
 
-    def _getDirectionCoords(self,current_coord,rows=0,cols=0,dir=0):
-        padding = self.padding
-        match dir:
-            case 3:
-                return (max(current_coord[0]-1,padding),current_coord[1])
-            case 1:
-                return (min(current_coord[0]+1,cols-1),current_coord[1])
-            case 0:
-                return (current_coord[0],max(current_coord[1]-1,padding))
-            case 2:
-                return (current_coord[0],min(current_coord[1]+1,rows-1))
-            
+    def _isCoordinateEmpty(self, curr_location, pixels):
+        next_location_pixels = self._calculateLocationPixels(
+            pixels, (curr_location[0], curr_location[1])
+        )
+        next_location_pixels_sum = sum(map(lambda tup: sum(tup), next_location_pixels))
+        return next_location_pixels_sum < SyntheticGenerator.OVERLAP_PIXEL_THRESHOLD
 
-    def _nextSpawnLocation(self,grid,curr_location,rows=0,cols=0):
-        # Egg spawns at a random location occassionally   
-        padding = self.padding
-        cols = cols - (padding)
-        rows = rows - (padding)     
+    def _isCoordinateWithinBounds(self, curr_location):
+        top_left_x, top_left_y, bot_right_x, bot_right_y = curr_location
+        overflows_horizontal = (
+            top_left_x < 0
+            or bot_right_x < 0
+            or top_left_x > self.image_width - SyntheticGenerator.EGG_RADIUS
+            or bot_right_x > self.image_width - SyntheticGenerator.EGG_RADIUS
+        )
+        overflows_vertical = (
+            top_left_y < 0
+            or bot_right_y < 0
+            or top_left_y > self.image_height - SyntheticGenerator.EGG_RADIUS
+            or bot_right_y > self.image_height - SyntheticGenerator.EGG_RADIUS
+        )
+
+        curr_center = Utility.boundingBoxToCenter(
+            curr_location,
+            box_size=(
+                SyntheticGenerator.EGG_RADIUS * 2,
+                SyntheticGenerator.EGG_RADIUS * 2,
+            ),
+        )
+        image_center = (self.image_width / 2, self.image_height / 2)
+        overflows_bounding_circle = (
+            math.dist(curr_center, image_center) > self.boundary_radius
+        )
+        return not (
+            overflows_horizontal or overflows_vertical or overflows_bounding_circle
+        )
+
+    def _getNextSpawnLocation(
+        self, curr_location: tuple[int, int, int, int], pixels: list[int]
+    ):
+        next_location = SyntheticGenerator.INVALID_LOCATION
+        is_next_location_empty = False
         rand_num = random.random()
-        if curr_location == SyntheticGenerator.INVALID_LOCATION or (rand_num < self.separation_chance):
-            log('cluster splitting...')
-            retry_count = 0
-            while True:
-                next_location = (random.randint(padding,rows-1),random.randint(padding,cols-1))
-                retry_count+=1
-                if grid[next_location[0]][next_location[1]] == 0: return next_location
-                if retry_count > rows * cols: return SyntheticGenerator.INVALID_LOCATION
-
-        # Egg spwans around the current egg
-        potential_next_locations = []
-        for i in range(4):
-            next_location = self._getDirectionCoords(curr_location,rows=rows,cols=cols,dir=i)
-            
-            if grid[next_location[0]][next_location[1]] == 0:
-                potential_next_locations.append((next_location[0],next_location[1]))
-        
-        if len(potential_next_locations) == 0:
-            log('finding next empty slot')
-            return self._findNextEmptySlot(grid)
+        angle_choices = [i * math.pi / 4 for i in range(1, 9)]
+        if (
+            curr_location == SyntheticGenerator.INVALID_LOCATION
+            or rand_num < self.separation_chance
+        ):
+            next_location_center = Utility.getRandomCoordinate(
+                (round(self.image_width / 2), round(self.image_height / 2)),
+                self.boundary_radius,
+            )
+            next_location = Utility.centerToBoundingBox(
+                next_location_center,
+                (SyntheticGenerator.EGG_RADIUS * 2, SyntheticGenerator.EGG_RADIUS * 2),
+            )
         else:
-            next_location = random.choice(potential_next_locations)
-            log(f'got next_locations: {next_location}')
-            return next_location
+            random.shuffle(angle_choices)
+            next_angle = angle_choices.pop()
+            next_location = Utility.translateBoxInPolarCoords(
+                curr_location,
+                SyntheticGenerator.EGG_RADIUS * 2 + SyntheticGenerator.EGG_SPACING,
+                next_angle,
+            )
 
-    def generateGrid(self,rows=10,cols=10,show_grid=False,generate_animation=False):
-        row_height, col_width = self.image_width//rows, self.image_height//cols
-        location_grid = [[0 for _ in range(cols)] for _ in range(rows)]
+        is_next_location_empty = self._isCoordinateEmpty(next_location, pixels)
+        is_next_location_within_bounds = self._isCoordinateWithinBounds(next_location)
+        retry_count = 0
+        while (
+            not (is_next_location_empty and is_next_location_within_bounds)
+            and retry_count < SyntheticGenerator.RANDOM_LOCATION_RETRIES_LIMIT
+        ):
+            if len(angle_choices) == 0:
+                next_location_center = Utility.getRandomCoordinate(
+                    (round(self.image_width / 2), round(self.image_height / 2)),
+                    self.boundary_radius,
+                )
+                next_location = Utility.centerToBoundingBox(
+                    next_location_center,
+                    (
+                        SyntheticGenerator.EGG_RADIUS * 2,
+                        SyntheticGenerator.EGG_RADIUS * 2,
+                    ),
+                )
+            else:
+                next_location = Utility.translateBoxInPolarCoords(
+                    curr_location,
+                    SyntheticGenerator.EGG_RADIUS * 2 + SyntheticGenerator.EGG_SPACING,
+                    angle_choices.pop(),
+                )
+            is_next_location_empty = self._isCoordinateEmpty(next_location, pixels)
+            is_next_location_within_bounds = self._isCoordinateWithinBounds(
+                next_location
+            )
+            retry_count += 1
 
-        im = Image.new('RGBA', (self.image_width,self.image_height))
-        backgroundIm = Image.open(os.path.join('background','bg_29.png')).resize(im.size).convert(im.mode)
-        draw = ImageDraw.Draw(backgroundIm)
+        return (
+            next_location
+            if is_next_location_empty and is_next_location_within_bounds
+            else SyntheticGenerator.INVALID_LOCATION
+        )
 
-        if show_grid:
-            for row in range(0,self.image_height,row_height):
-                draw.line([(0,row),(self.image_width,row)], fill='#00ffff')
+    def _calculateLocationPixels(self, pixels, curr_location_top):
+        top_offset = self.image_width * curr_location_top[1]
+        left_offset = curr_location_top[0]
+        location_pixels = []
 
-            for col in range(0,self.image_width,col_width):
-                draw.line([(col,0),(col,self.image_height)], fill='#00ffff')
+        for _ in range(self.EGG_RADIUS * 2):
+            location_pixels.extend(
+                pixels[
+                    top_offset
+                    + left_offset : top_offset
+                    + left_offset
+                    + self.EGG_RADIUS * 2
+                ]
+            )
+            top_offset += self.image_width
+        return location_pixels
 
-        animation_frames = []
-        next_spawn_location = SyntheticGenerator.INVALID_LOCATION
-        for _ in range(floor(self.egg_fill*(rows-self.padding*2)*(cols-self.padding*2))):
-            next_spawn_location = self._nextSpawnLocation(location_grid,next_spawn_location,rows=rows,cols=cols)
-            if (next_spawn_location[0] < 0) or (next_spawn_location[1] <0): break
-            next_egg_radius = Utility.randomizeWithinVariance(col_width)
+    def generete(
+        self,
+        number_images: int = 10,
+        min_eggs: int = 50,
+        max_eggs: int = 100,
+        viable_percent: float = 0.5,
+        save_dir: str = "generated",
+    ) -> None:
+        image_count = 0
+
+        if not os.path.isdir(save_dir):
+            # exist_ok=True handles race conditions when run in multiple threads
+            os.makedirs(save_dir, exist_ok=True)
+
+        for i in range(number_images):
+            im = Image.new("RGBA", (self.image_width, self.image_height))
+            backgroundIm = random.choice(self.backgrounds).copy()
+            next_spawn_location = SyntheticGenerator.INVALID_LOCATION
+            egg_count = 0
+            viable_count = 0
+
+            while egg_count < random.randint(min_eggs, max_eggs) and (
+                egg_count == 0
+                or next_spawn_location != SyntheticGenerator.INVALID_LOCATION
+            ):
+                next_egg = self._getNextEgg(viable_percent)
+                pixels = list(im.getdata())
+                next_spawn_location = self._getNextSpawnLocation(
+                    next_spawn_location, pixels
+                )
+                im.paste(next_egg.image, next_spawn_location, next_egg.image)
+                if next_egg.type == EggType.VIABLE:
+                    viable_count += 1
+                egg_count += 1
+            backgroundIm.paste(im, mask=im)
+            backgroundIm.save(
+                f"{save_dir}/{image_count}-synthetic-eggs-{viable_count}-{egg_count-viable_count}.png"
+            )
+            image_count += 1
 
 
-            next_egg = self._getNextEgg().resize((next_egg_radius,next_egg_radius)).convert('RGBA')
-            backgroundIm.paste(next_egg,((next_spawn_location[1])*col_width,(next_spawn_location[0])*row_height),next_egg)
-            location_grid[next_spawn_location[0]][next_spawn_location[1]] = 1
-            if generate_animation:
-                animation_frames.append(backgroundIm.copy())
+def parseCmdArgs(args: list[str]):
+    validArgs = dict(
+        [
+            ("number_images", int),
+            ("min_eggs", int),
+            ("max_eggs", int),
+            ("viable_percent", float),
+            ("save_dir", str),
+        ]
+    )
 
-        if generate_animation:    
-            animation_frames[0].save('animation.gif',save_all=True,append_images=animation_frames[1:],duration=2)
-        return backgroundIm
+    parsed_args = dict()
+    for arg in args:
+        if not arg.startswith("--"):
+            raise Exception(
+                "Options have the format --option_name=value. Invalid option: %s" % arg
+            )
+        trimmed_arg = arg.lstrip("-")
+        option, value = trimmed_arg.split("=")
+        if option not in validArgs:
+            raise Exception("Invalid option: %s" % option)
+        try:
+            parsed_args[option] = validArgs[option](value)
+        except ValueError:
+            raise Exception("Value for option --%s is invalid" % option)
 
-# Dev test
-viable_image_dir = 'fertilized'
-non_viable_image_dir = 'unfertilized'
+    return parsed_args
 
-viable_images = [Image.open(os.path.join(viable_image_dir,img)) for img in os.listdir(viable_image_dir) if img.endswith('png')]
-non_viable_images = [Image.open(os.path.join(non_viable_image_dir,img)) for img in os.listdir(non_viable_image_dir) if img.endswith('png')]
 
-frog_generator = SyntheticGenerator(viable_images,non_viable_images,viable_percent=0.6)
+def main():
+    cmd_args = sys.argv[1:]
+    # Dev test
+    viable_images_dir = "fertilized"
+    non_viable_images_dir = "unfertilized"
+    backgrounds_dir = "background"
 
-im = frog_generator.generateGrid(40,40,show_grid=False,generate_animation=False)
-im.show()
+    frog_generator = SyntheticGenerator(
+        viable_images_dir, non_viable_images_dir, backgrounds_dir
+    )
+
+    default_args = dict(
+        number_images=2,
+        min_eggs=10,
+        max_eggs=20,
+        viable_percent=0.6,
+        save_dir="generated",
+    )
+
+    cmd_options_parsed = default_args
+    try:
+        cmd_options_parsed.update(parseCmdArgs(cmd_args))
+        log("[%s] Generating images with options:" % datetime.now(), cmd_options_parsed)
+        frog_generator.generete(**cmd_options_parsed)
+        log(
+            "[%s] Finished generating images with options:" % datetime.now(),
+            cmd_options_parsed,
+        )
+    except Exception as e:
+        log("\n")
+        if hasattr(e, "message"):
+            log(e.message)
+        else:
+            log(e)
+        log("\n")
+    return 0
+
+
+if __name__ == "__main__":
+    main()

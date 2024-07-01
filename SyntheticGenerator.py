@@ -1,9 +1,8 @@
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image
 import random
 import math
 import os
 from enum import Enum
-import threading
 import sys
 from datetime import datetime
 
@@ -72,8 +71,8 @@ class Utility:
 
 
 class EggType(Enum):
-    VIABLE = "viable"
-    NON_VIABLE = "non_viable"
+    VIABLE = 0
+    NON_VIABLE = 1
 
 
 class SyntheticEgg:
@@ -91,7 +90,7 @@ class SyntheticGeneratorResult:
 
 class SyntheticGenerator:
     INVALID_LOCATION = (-1, -1, -1, -1)
-    EGG_RADIUS = 9
+    EGG_RADIUS = 12
     EGG_SPACING = 3
     OVERLAP_PIXEL_THRESHOLD = 50000
     RANDOM_LOCATION_RETRIES_LIMIT = 300
@@ -279,7 +278,9 @@ class SyntheticGenerator:
             next_spawn_location = SyntheticGenerator.INVALID_LOCATION
             egg_count = 0
             viable_count = 0
-
+            annotations = (
+                []
+            )  # class,normalized_center_x,normalized_center_y,egg_normalized_width,egg_normalized_height
             while egg_count < random.randint(min_eggs, max_eggs) and (
                 egg_count == 0
                 or next_spawn_location != SyntheticGenerator.INVALID_LOCATION
@@ -289,14 +290,18 @@ class SyntheticGenerator:
                 next_spawn_location = self._getNextSpawnLocation(
                     next_spawn_location, pixels
                 )
+                next_spawn_center = Utility.boundingBoxToCenter(next_spawn_location,(SyntheticGenerator.EGG_RADIUS*2,SyntheticGenerator.EGG_RADIUS*2))
                 im.paste(next_egg.image, next_spawn_location, next_egg.image)
                 if next_egg.type == EggType.VIABLE:
                     viable_count += 1
                 egg_count += 1
+                annotations.append(f'{next_egg.type.value} {next_spawn_center[0]/self.image_width:.4f} {next_spawn_center[1]/self.image_height:.4f} {SyntheticGenerator.EGG_RADIUS*2/self.image_width} {SyntheticGenerator.EGG_RADIUS*2/self.image_height}\n')
             backgroundIm.paste(im, mask=im)
             backgroundIm.save(
                 f"{save_dir}/{image_count}-synthetic-eggs-{viable_count}-{egg_count-viable_count}.png"
             )
+            with open(f"{save_dir}/{image_count}-synthetic-eggs-{viable_count}-{egg_count-viable_count}.txt",'w+') as f:
+                f.writelines(annotations)
             image_count += 1
 
 
@@ -332,9 +337,9 @@ def parseCmdArgs(args: list[str]):
 def main():
     cmd_args = sys.argv[1:]
     # Dev test
-    viable_images_dir = "fertilized"
-    non_viable_images_dir = "unfertilized"
-    backgrounds_dir = "background"
+    viable_images_dir = "fertilized_images"
+    non_viable_images_dir = "unfertilized_images"
+    backgrounds_dir = "background_images"
 
     frog_generator = SyntheticGenerator(
         viable_images_dir, non_viable_images_dir, backgrounds_dir

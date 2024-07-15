@@ -21,5 +21,3 @@ sh RunScript.sh
 # The run script uses GenerateSyntheticImages_MultipleTypes.py script to generate images
 #  and saves them into a folder synthetic_frog_eggs/mixture
 ```
-### Generating data for ResNet18
-- Run 

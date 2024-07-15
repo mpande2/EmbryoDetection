@@ -1,0 +1,1 @@
+- The script is used to create loss vs epoch and metrices (mAP50, mAP50-950) vs epoch for different DOPIMIZERS\

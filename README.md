@@ -1,4 +1,4 @@
-# Convolution Neural Network-based classification of fertilized vs non-fertilized frog eggs
+# Evaluation of machine learning models for classification of embryonic development of African clawed frog (Xenopus laevis) using synthetic images
 
 The project aims to develop a convolutional neural network to perform binary classification of frog eggs into fertilized (F) vs non-fertilized (NF) categories. 
 The project aims to help experimental biologists determine

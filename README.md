@@ -21,3 +21,14 @@ sh RunScript.sh
 # The run script uses GenerateSyntheticImages_MultipleTypes.py script to generate images
 #  and saves them into a folder synthetic_frog_eggs/mixture
 ```
+
+# Contributors
+Gopal Srivastava1#, Monika Pandey2#, Kiran Bist2#, Sandesh Chapagain3#, Carl Anderson4, Nikko-Ideen Shaidani4, Marko Horb4, Terrence R. Tiersch5, Peter Wolenski2*, Yue Liu5*
+
+1.	Department of Biological Sciences, Louisiana State University, Baton Rouge, LA, USA, 70803
+2.	Department of Mathematics, Louisiana State University, Baton Rouge, LA, USA, 70803
+3.	Department of Computer Science, Louisiana State University, Baton Rouge, LA, USA, 70803
+4.	National Xenopus Resource (NXR), Marine Biological Laboratory, MA, USA, 02543
+5.	Aquatic Germplasm and Genetic Resources Center, Louisiana State University Agriculture Center, LA, USA, 70820
+#: Equal Contribution
+*: Corresponding Authors

@@ -6,7 +6,7 @@ The project aims to help experimental biologists determine
   - To determine if the egg petri-dish is useful for further experimental testing
 
 ## Pre-requisites
-- python 3
+- python 3.11
 - Pillow `pip install pillow`
 - tensorflow
 
